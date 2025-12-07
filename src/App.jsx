@@ -234,8 +234,14 @@ function App() {
       const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
       
+      // Normalize deltaTime to 60fps (16.67ms per frame) for frame-rate independence
+      // This ensures the game runs at the same speed on all devices regardless of refresh rate
+      // Cap deltaTime to prevent huge jumps when tab was inactive (max 100ms = ~6x normal speed)
+      const cappedDeltaTime = Math.min(deltaTime, 100);
+      const deltaTimeNormalized = cappedDeltaTime / 16.67;
+      
       if (gameRef.current.gameStarted && !gameRef.current.gameOver) {
-        frameRef.current += 0.1 * (deltaTime / 16.67);
+        frameRef.current += 0.1 * deltaTimeNormalized;
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -254,8 +260,8 @@ function App() {
         ctx.arc(cloud.x + (cloud.width*3/4), cloud.y + cloud.height/2, cloud.width/4, 0, Math.PI * 2);
         ctx.fill();
         
-        // Update cloud position
-        cloud.x -= cloud.speed;
+        // Update cloud position (frame-rate independent)
+        cloud.x -= cloud.speed * deltaTimeNormalized;
         
         // Reset cloud position when it moves off screen
         if (cloud.x + cloud.width < 0) {
@@ -263,8 +269,8 @@ function App() {
         }
       });
 
-      // Update ground position
-      game.groundX = (game.groundX - PIPE_SPEED) % GROUND_HEIGHT;
+      // Update ground position (frame-rate independent)
+      game.groundX = (game.groundX - PIPE_SPEED * deltaTimeNormalized) % GROUND_HEIGHT;
       
       // Calculate how many ground segments we need to fill the screen
       const groundSegments = Math.ceil(canvas.width / GROUND_HEIGHT) + 1;
@@ -281,12 +287,15 @@ function App() {
       }
 
       if (game.gameStarted && !game.gameOver) {
-        game.bird.y += game.bird.velocity;
-        game.bird.velocity += GRAVITY;
+        // Update bird physics (frame-rate independent)
+        // Position changes based on velocity, scaled by time
+        game.bird.y += game.bird.velocity * deltaTimeNormalized;
+        // Velocity changes due to gravity, scaled by time
+        game.bird.velocity += GRAVITY * deltaTimeNormalized;
 
-        // Update pipes
+        // Update pipes (frame-rate independent)
         game.pipes = game.pipes
-          .map(pipe => ({ ...pipe, x: pipe.x - PIPE_SPEED }))
+          .map(pipe => ({ ...pipe, x: pipe.x - PIPE_SPEED * deltaTimeNormalized }))
           .filter(pipe => pipe.x > -PIPE_WIDTH);
 
         if (game.pipes.length === 0 || game.pipes[game.pipes.length - 1].x < window.innerWidth - 300) {
